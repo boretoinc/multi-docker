@@ -1,0 +1,37 @@
+language: generic
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t boretoinc/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  #- docker run boretoinc/react-test npm test -- --coverage
+  docker run -e CI=true USERNAME/react-test npm test
+
+after_sucess:
+  - docker build -t boretoinc/multi-client ./client
+  - docker build -t boretoinc/multi-nginx ./nginx
+  - docker build -t boretoinc/mult-server ./server
+  - docker build -t boretoinc/multi-worker ./worker
+  # Log in to the docker CLI
+  - echo “$DOCKER_PASSWORD” | docker login -u “$DOCKER_ID” —password-stdin
+  # Take those imges and push them to docker hub
+  - docker push boretoinc/multi-client
+  - docker push boretoinc/multi-nginx
+  - docker push boretoinc/mult-server
+  - docker push boretoinc/multi-worker
+
+deploy:
+  provider: elasticbeankstalk
+  region: us-east-1
+  app: multi-docker
+  env: MultiDocker-env
+  bucket_name: elasticbeanstalk-us-east-1-683077584735
+  bucket_path: docker-multi
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  scret_access_key:
+    secure: $AWS_SECRET_KEY
